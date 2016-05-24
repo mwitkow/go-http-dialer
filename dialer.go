@@ -54,6 +54,7 @@ func WithConnectionTimeout(timeout time.Duration) opt {
 	}
 }
 
+// HttpTunnel represents a configured HTTP Connect Tunnel dialer.
 type HttpTunnel struct {
 	parentDialer *net.Dialer
 	isTls        bool
@@ -85,6 +86,7 @@ func (t *HttpTunnel) dialProxy() (net.Conn, error) {
 	return tls.DialWithDialer(t.parentDialer, "tcp", t.proxyAddr, t.tlsConfig)
 }
 
+// Dial is an implementation of net.Dialer, and returns a TCP connection handle to the host that HTTP CONNECT reached.
 func (t *HttpTunnel) Dial(network string, address string) (net.Conn, error) {
 	if network != "tcp" {
 		return nil, fmt.Errorf("network type '%v' unsupported (only 'tcp')", network)

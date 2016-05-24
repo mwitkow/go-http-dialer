@@ -4,23 +4,19 @@
 package test
 
 import (
-	"net"
-	"time"
-
-	"net/http"
-	"testing"
-
-	"fmt"
-
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
-
+	"net"
+	"net/http"
 	"net/url"
+	"testing"
+	"time"
 
 	"github.com/elazarl/goproxy"
-	"github.com/mwitkow/go-http-connect-dialer"
-	"github.com/mwitkow/go-http-connect-dialer/test/testproto"
+	"github.com/mwitkow/go-http-dialer"
+	"github.com/mwitkow/go-http-dialer/test/testproto"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/net/context"

@@ -54,14 +54,20 @@ func WithConnectionTimeout(timeout time.Duration) opt {
 	}
 }
 
+// WithProxyAuth allows you to add ProxyAuthorization to calls.
+func WithProxyAuth(auth ProxyAuthorization) opt {
+	return func(t *HttpTunnel) {
+		t.auth = auth
+	}
+}
+
 // HttpTunnel represents a configured HTTP Connect Tunnel dialer.
 type HttpTunnel struct {
 	parentDialer *net.Dialer
 	isTls        bool
-
-	proxyAddr string
-	// Customizeable TlsConfig to be used when connecting.
-	tlsConfig *tls.Config
+	proxyAddr    string
+	tlsConfig    *tls.Config
+	auth         ProxyAuthorization
 }
 
 func (t *HttpTunnel) parseProxyUrl(proxyUrl *url.URL) {
@@ -101,19 +107,52 @@ func (t *HttpTunnel) Dial(network string, address string) (net.Conn, error) {
 		Host:   address, // This is weird
 		Header: make(http.Header),
 	}
-	// TODO(mwitkow): add Proxy-Authorization support.
-	req.Write(conn)
-
-	// TLS server will not speak until spoken to.
-	br := bufio.NewReader(conn)
-	resp, err := http.ReadResponse(br, req)
+	if t.auth != nil && t.auth.InitialResponse() != "" {
+		req.Header.Set(hdrProxyAuthResp, t.auth.Type() + " " + t.auth.InitialResponse())
+	}
+	resp, err := t.doRoundtrip(conn, req)
 	if err != nil {
 		conn.Close()
 		return nil, err
 	}
+	// Retry request with auth, if available.
+	if resp.StatusCode == http.StatusProxyAuthRequired && t.auth != nil {
+		responseHdr, err := t.performAuthChallengeResponse(resp)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		req.Header.Set(hdrProxyAuthResp, t.auth.Type() + " " + responseHdr)
+		resp, err = t.doRoundtrip(conn, req)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+
 	if resp.StatusCode != 200 {
 		conn.Close()
 		return nil, fmt.Errorf("http_tunnel: failed proxying %d: %s", resp.StatusCode, resp.Status)
 	}
 	return conn, nil
+}
+
+func (t *HttpTunnel) doRoundtrip(conn net.Conn, req *http.Request) (*http.Response, error) {
+	if err := req.Write(conn); err != nil {
+		return nil, fmt.Errorf("http_tunnel: failed writing request: %v", err)
+	}
+	// Doesn't matter, discard this bufio.
+	br := bufio.NewReader(conn)
+	return http.ReadResponse(br, req)
+
+}
+
+func (t *HttpTunnel) performAuthChallengeResponse(resp *http.Response) (string, error) {
+	respAuthHdr := resp.Header.Get(hdrProxyAuthReq)
+	if !strings.Contains(respAuthHdr, t.auth.Type() + " ") {
+		return "", fmt.Errorf("http_tunnel: expected '%v' Proxy authentication, got: '%v'", t.auth.Type(), respAuthHdr)
+	}
+	splits := strings.SplitN(respAuthHdr, " ", 2)
+	challenge := splits[1]
+	return t.auth.ChallengeResponse(challenge), nil
 }

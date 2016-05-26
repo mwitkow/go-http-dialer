@@ -22,7 +22,7 @@ Also, this allows you to call any TCP service over HTTP `CONNECT`... if your pro
  - [x] unencrypted connection to proxy (e.g. `http://proxy.example.com:3128`
  - [x] TLS connection to proxy (customizeable) (e.g. `https://proxy.example.com`)
  - [x] customizeable for `Proxy-Authenticate`, with challenge-response semantics
- - [x] out of the box 
+ - [x] out of the box support for `Basic` auth
  - [ ] appropriate `RemoteAddr` remapping
  
 

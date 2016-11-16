@@ -1,6 +1,8 @@
 language: go
+sudo: false
+
 go:
-  - 1.6
+  - 1.7
 
 install:
   - go get google.golang.org/grpc
